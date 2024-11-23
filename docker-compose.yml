@@ -16,8 +16,6 @@ services:
       FLASK_DB_NAME: school_db
     depends_on:
       - mariadb
-    networks:
-      - app_network
 
   mariadb:
     build:
@@ -30,8 +28,6 @@ services:
       MYSQL_DATABASE: school_db
       MYSQL_USER: flask_user
       MYSQL_PASSWORD: flask_password
-    networks:
-      - app_network
 
   prometheus:
     image: prom/prometheus
@@ -62,6 +58,6 @@ services:
     depends_on:
       - prometheus
 
-networks:
-  app_network:
-    driver: bridge
+volumes:
+  db_data:
+  grafana_data:
