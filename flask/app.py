@@ -1,4 +1,3 @@
-# Código principal do Flask (app.py)
 import time
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -9,30 +8,33 @@ from sqlalchemy.exc import OperationalError
 from prometheus_flask_exporter import PrometheusMetrics
 import logging
 
+# Inicialização do app Flask
 app = Flask(__name__)
 
+# Inicialização do Prometheus para métricas
 metrics = PrometheusMetrics(app)
-# Configuração da chave secreta para sessões
-app.config['SECRET_KEY'] = 'minha_chave_secreta_super_secreta'  # Substitua por uma chave segura
+
+# Configuração de chave secreta
+app.config['SECRET_KEY'] = 'minha_chave_secreta_super_secreta'
 
 # Configuração do banco de dados
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root_password@mariadb/school_db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Inicializar o banco de dados e o AppBuilder
+# Inicialização do banco de dados e do AppBuilder
 db = SQLAlchemy(app)
 appbuilder = AppBuilder(app, db.session)
 
-# Configuração do log
+# Configuração de logs
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Tentar conectar até o MariaDB estar pronto
+# Tentativa de conexão com o banco de dados
 attempts = 5
 for i in range(attempts):
     try:
         with app.app_context():
-            db.create_all()  # Inicializa o banco de dados
+            db.create_all()  # Criação das tabelas no banco de dados
             # Criar um usuário administrador padrão
             if not appbuilder.sm.find_user(username='admin'):
                 appbuilder.sm.add_user(
@@ -53,7 +55,7 @@ for i in range(attempts):
             logger.error("Não foi possível conectar ao banco de dados após várias tentativas.")
             raise
 
-# Modelo de Aluno - Definição da tabela 'Aluno' no banco de dados
+# Modelo Aluno para o banco de dados
 class Aluno(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(50), nullable=False)
@@ -61,7 +63,7 @@ class Aluno(db.Model):
     turma = db.Column(db.String(50), nullable=False)
     disciplinas = db.Column(db.String(200), nullable=False)
 
-# Visão do modelo Aluno para o painel administrativo
+# Visão do modelo Aluno para o AppBuilder
 class AlunoModelView(ModelView):
     datamodel = SQLAInterface(Aluno)
     list_columns = ['id', 'nome', 'sobrenome', 'turma', 'disciplinas']
@@ -78,18 +80,33 @@ appbuilder.add_view(
 @app.route('/alunos', methods=['GET'])
 def listar_alunos():
     alunos = Aluno.query.all()
-    output = [{'id': aluno.id, 'nome': aluno.nome, 'sobrenome': aluno.sobrenome, 'turma': aluno.turma, 'disciplinas': aluno.disciplinas} for aluno in alunos]
+    output = [
+        {
+            'id': aluno.id,
+            'nome': aluno.nome,
+            'sobrenome': aluno.sobrenome,
+            'turma': aluno.turma,
+            'disciplinas': aluno.disciplinas
+        }
+        for aluno in alunos
+    ]
     return jsonify(output)
 
 # Rota para adicionar um aluno - Método POST
 @app.route('/alunos', methods=['POST'])
 def adicionar_aluno():
     data = request.get_json()
-    novo_aluno = Aluno(nome=data['nome'], sobrenome=data['sobrenome'], turma=data['turma'], disciplinas=data['disciplinas'])
+    novo_aluno = Aluno(
+        nome=data['nome'],
+        sobrenome=data['sobrenome'],
+        turma=data['turma'],
+        disciplinas=data['disciplinas']
+    )
     db.session.add(novo_aluno)
     db.session.commit()
     logger.info(f"Aluno {data['nome']} {data['sobrenome']} adicionado com sucesso!")
     return jsonify({'message': 'Aluno adicionado com sucesso!'}), 201
 
+# Inicialização do servidor
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
